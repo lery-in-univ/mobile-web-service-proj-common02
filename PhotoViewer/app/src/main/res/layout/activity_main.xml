@@ -28,6 +28,12 @@
             android:text="새로운 이미지 게시" />
     </LinearLayout>
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="onClickInterestSettings"
+        android:text="관심 항목 설정" />
+
     <TextView
         android:id="@+id/textView"
         android:layout_width="match_parent"

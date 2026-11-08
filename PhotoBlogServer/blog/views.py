@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
-from .models import Post
+from .models import Post, InterestSettings
 from .forms import PostForm
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -67,3 +67,25 @@ class IntruderImage(viewsets.ModelViewSet):
         post = self.get_object()
         post.liked_by.remove(request.user)
         return Response({'liked': False})
+
+
+class InterestSettingsViewSet(viewsets.ViewSet):
+    queryset = InterestSettings.objects.all()
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request):
+        labels = list(InterestSettings.objects.values_list('label', flat=True))
+        return Response({'labels': labels})
+
+    @action(detail=False, methods=['put'], url_path='save')
+    def save(self, request):
+        labels = request.data.get('labels')
+
+        # 전부 삭제하고 다시 만들기
+        InterestSettings.objects.all().delete()
+        InterestSettings.objects.bulk_create(
+            [InterestSettings(label=label) for label in labels]
+        )
+    
+        return Response({'labels': labels})

@@ -2,11 +2,12 @@ import os
 import cv2
 import pathlib
 import requests
+import time
 from datetime import datetime
 
 class ChangeDetection:
   result_prev = []
-  HOST = 'https://coalery.pythonanywhere.com'
+  HOST = 'http://127.0.0.1:8000'
   username = 'admin'
   password = '1234'
   token = ''
@@ -22,9 +23,24 @@ class ChangeDetection:
     })
     res.raise_for_status()
     self.token = res.json()['token']
-    print(self.token)
+
+    self.interest_labels = []
+    self.refresh_interests()
+
+  def refresh_interests(self):
+    self.last_interest_fetch = time.monotonic()
+
+    headers = {'Authorization': 'Token ' + self.token}
+    res = requests.get(self.HOST + '/api_root/InterestSettings/', headers=headers)
+    res.raise_for_status()
+
+    self.interest_labels = res.json()['labels']
+    print(self.interest_labels)
 
   def add(self, names, detected_current, save_dir, image):
+    if time.monotonic() - self.last_interest_fetch > 10:
+      self.refresh_interests()
+
     self.title = ''
     self.text = ''
     change_flag = 0
@@ -32,9 +48,10 @@ class ChangeDetection:
 
     while i < len(self.result_prev):
       if self.result_prev[i] == 0 and detected_current[i] == 1:
-        change_flag = 1
-        self.title = names[i]
-        self.text += names[i] + ', '
+        if names[i] in self.interest_labels:
+          change_flag = 1
+          self.title = names[i]
+          self.text += names[i] + ', '
       i += 1
 
     self.result_prev = detected_current[:]

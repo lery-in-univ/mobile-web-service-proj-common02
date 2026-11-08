@@ -9,6 +9,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.EditText;
+import androidx.appcompat.app.AlertDialog;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -70,6 +72,75 @@ public class MainActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         recyclerView = findViewById(R.id.recyclerView);
+    }
+
+    public void onClickInterestSettings(View v) {
+        new InterestTask(null).execute();
+    }
+
+    private class InterestTask extends AsyncTask<Void, Void, JSONObject> {
+        private final JSONArray labels;
+        private String error;
+
+        InterestTask(JSONArray labels) { this.labels = labels; }
+
+        @Override
+        protected JSONObject doInBackground(Void... ignored) {
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) new URL(site_url + "/api_root/InterestSettings/" + (labels == null ? "" : "save/")).openConnection();
+                conn.setRequestProperty("Authorization", "Token " + token);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                if (labels != null) {
+                    conn.setRequestMethod("PUT");
+                    conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                    conn.setDoOutput(true);
+                    byte[] body = new JSONObject().put("labels", labels).toString().getBytes(StandardCharsets.UTF_8);
+                    try (OutputStream output = conn.getOutputStream()) { output.write(body); }
+                }
+                int status = conn.getResponseCode();
+                if (status < 200 || status >= 300) throw new IOException("HTTP " + status);
+                return new JSONObject(readResponse(conn.getInputStream()));
+            } catch (Exception e) {
+                error = e.getMessage();
+                return null;
+            } finally { if (conn != null) conn.disconnect(); }
+        }
+
+        @Override
+        protected void onPostExecute(JSONObject result) {
+            if (isFinishing() || isDestroyed()) return;
+            if (result == null) {
+                Toast.makeText(MainActivity.this, "설정 실패: " + error, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (labels != null) {
+                Toast.makeText(MainActivity.this, "관심 항목 저장 완료", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            JSONArray saved = result.optJSONArray("labels");
+            StringBuilder value = new StringBuilder();
+            if (saved != null) for (int i = 0; i < saved.length(); i++) {
+                if (i > 0) value.append(", ");
+                value.append(saved.optString(i));
+            }
+            EditText input = new EditText(MainActivity.this);
+            input.setText(value.toString());
+            input.setHint("예: person, car, dog");
+            new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("관심 항목 설정")
+                    .setMessage("모델의 항목 이름을 쉼표로 구분하세요. 비워두면 업로드하지 않습니다.")
+                    .setView(input)
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("저장", (dialog, which) -> {
+                        JSONArray selected = new JSONArray();
+                        for (String label : input.getText().toString().split(",")) {
+                            if (!label.trim().isEmpty()) selected.put(label.trim());
+                        }
+                        new InterestTask(selected).execute();
+                    }).show();
+        }
     }
 
     public void onClickDownload(View v) {

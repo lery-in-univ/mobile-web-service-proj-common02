@@ -4,6 +4,7 @@ from . import views
 
 router = routers.DefaultRouter()
 router.register('Post', views.IntruderImage)
+router.register('InterestSettings', views.InterestSettingsViewSet)
 
 urlpatterns = [
     path('', views.post_list, name='post_list'),
